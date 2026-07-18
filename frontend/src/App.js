@@ -4,6 +4,8 @@ import axios from 'axios';
 import confetti from 'canvas-confetti';
 import * as XLSX from 'xlsx';
 
+const API_BASE_URL = 'https://dreammore-app.onrender.com';
+
 function App() {
   const [file, setFile] = useState(null);
   const [status, setStatus] = useState('');
@@ -77,7 +79,7 @@ function App() {
 
   const fetchHistory = useCallback(async () => {
     try {
-      const response = await axios.get('http://localhost:5000/history');
+      const response = await axios.get(`${API_BASE_URL}/history`);
       if (response.data?.success) {
         const records = mapHistoryRecords(response.data.history || []);
         setHistoryRecords(records);
@@ -117,7 +119,7 @@ function App() {
       return undefined;
     }
 
-    const eventSource = new EventSource('http://localhost:5000/progress');
+    const eventSource = new EventSource(`${API_BASE_URL}/progress`);
 
     eventSource.onmessage = (event) => {
       const data = JSON.parse(event.data);
@@ -196,7 +198,7 @@ function App() {
       formData.append('courseName', selectedCourse);
       formData.append('selectedRecipients', JSON.stringify(validRecipients.map((row) => row.Email)));
 
-      const response = await axios.post('http://localhost:5000/send-emails', formData, {
+      const response = await axios.post(`${API_BASE_URL}/send-emails`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
@@ -511,9 +513,9 @@ function App() {
   const executeHistoryAction = async () => {
     try {
       if (historyConfirm.type === 'clear') {
-        await axios.delete('http://localhost:5000/history/clear');
+        await axios.delete(`${API_BASE_URL}/history/clear`);
       } else if (historyConfirm.type === 'delete-selected') {
-        await axios.delete('http://localhost:5000/history/delete-selected', {
+        await axios.delete(`${API_BASE_URL}/history/delete-selected`, {
           data: { ids: historyConfirm.ids }
         });
       }
