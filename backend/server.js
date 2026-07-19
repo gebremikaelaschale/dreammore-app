@@ -2,7 +2,7 @@ require('dotenv').config(); // ይህ .env ፋይሉን ያነብልሃል
 
 const express = require('express');
 const xlsx = require('xlsx');
-const { Resend } = require('resend');
+const nodemailer = require('nodemailer');
 const cors = require('cors');
 const multer = require('multer');
 const mongoose = require('mongoose');
@@ -30,6 +30,24 @@ mongoose.connect(process.env.MONGODB_URI)
     .then(() => console.log('Database Connected Successfully'))
     .catch((err) => console.error('MongoDB connection error:', err.message));
 
+const transporter = nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false,
+    requireTLS: true,
+    family: 4,
+    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+    tls: { rejectUnauthorized: false }
+});
+
+transporter.verify((error, success) => {
+    if (error) {
+        console.error('Nodemailer Transporter Error:', error);
+    } else {
+        console.log('Nodemailer Server is ready to send messages');
+    }
+});
+
 const broadcastProgress = (percent, status) => {
     progressState = { percent, status };
     progressClients.forEach((send) => send(progressState));
@@ -56,7 +74,7 @@ app.get('/progress', (req, res) => {
 app.post('/send-emails', upload.single('file'), async (req, res) => {
     try {
         const { courseName, selectedRecipients } = req.body;
-        console.log('Received request for course:', req.body.courseName);
+        console.log('Data received from frontend:', req.body);
         const workbook = xlsx.readFile(req.file.path);
         const data = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
         const selectedRecipientSet = new Set((JSON.parse(selectedRecipients || '[]')).map((value) => String(value || '').trim().toLowerCase()));
@@ -84,8 +102,6 @@ app.post('/send-emails', upload.single('file'), async (req, res) => {
             return res.json({ success: true, message: 'No valid recipients found.', sentCount: 0, duplicateCount: 0, sentTo: [], duplicates: [], invalidRecipients });
         }
 
-        const resend = new Resend(process.env.RESEND_API_KEY);
-
         const sentTo = [];
         const duplicates = [];
 
@@ -105,8 +121,8 @@ app.post('/send-emails', upload.single('file'), async (req, res) => {
             } else {
                 console.log('Attempting to send email to:', user.Email);
                 try {
-                    const { data, error } = await resend.emails.send({
-                        from: 'DreamMore <onboarding@resend.dev>',
+                    await transporter.sendMail({
+                        from: `DreamMore <${process.env.EMAIL_USER}>`,
                         to: normalizedEmail,
                         subject: 'Course Registration',
                         html: `
@@ -145,10 +161,6 @@ app.post('/send-emails', upload.single('file'), async (req, res) => {
                         </div>
                     `
                     });
-
-                    if (error) {
-                        throw error;
-                    }
 
                     console.log('Email successfully sent to:', user.Email);
 
