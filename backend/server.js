@@ -66,7 +66,11 @@ app.post('/send-emails', upload.single('file'), async (req, res) => {
     try {
         const { courseName, selectedRecipients, selectedStudents } = req.body;
         console.log('Data received from frontend:', req.body);
-        console.log('Final list of recipients to send:', req.body.selectedStudents || req.body.selectedRecipients);
+        
+        const parsedRecipients = JSON.parse(selectedRecipients || selectedStudents || '[]');
+        console.log('Students received by backend:', parsedRecipients.length);
+        console.log('Final list of recipients to send:', parsedRecipients);
+        
         const workbook = xlsx.readFile(req.file.path);
         const rawData = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
         
@@ -79,7 +83,7 @@ app.post('/send-emails', upload.single('file'), async (req, res) => {
             return normalizedRow;
         });
 
-        const selectedRecipientSet = new Set((JSON.parse(selectedRecipients || selectedStudents || '[]')).map((value) => String(value || '').trim().toLowerCase()));
+        const selectedRecipientSet = new Set(parsedRecipients.map((value) => String(value || '').trim().toLowerCase()));
 
         const filtered = data.filter((row) => {
             const matchesCourse = String(row.course || '').trim().toLowerCase() === String(courseName || '').trim().toLowerCase();

@@ -162,7 +162,7 @@ function App() {
     });
 
     if (!recipientsToSend.length) {
-      alert('No recipients are selected for the chosen course.');
+      alert('Please select at least one student');
       return;
     }
 
@@ -276,9 +276,9 @@ function App() {
       const normalizedRows = rows
         .filter((row) => row && (row.Name || row.name || row.Email || row.email || row.Course || row.course))
         .map((row) => ({
-          Name: row.Name || row.name || 'N/A',
-          Email: row.Email || row.email || '',
-          Course: row.Course || row.course || '',
+          Name: String(row.Name || row.name || 'N/A').trim(),
+          Email: String(row.Email || row.email || '').trim(),
+          Course: String(row.Course || row.course || '').trim(),
           selected: true
         }));
 
