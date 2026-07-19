@@ -86,7 +86,8 @@ app.post('/send-emails', upload.single('file'), async (req, res) => {
 
         const transporter = nodemailer.createTransport({
             service: 'gmail',
-            auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+            auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+            tls: { rejectUnauthorized: false }
         });
 
         const sentTo = [];
@@ -149,6 +150,8 @@ app.post('/send-emails', upload.single('file'), async (req, res) => {
                     `
                     });
 
+                    console.log('Email successfully sent to:', user.Email);
+
                     await EmailLog.create({
                         studentName: user.Name || 'Unknown',
                         email: normalizedEmail,
@@ -162,7 +165,7 @@ app.post('/send-emails', upload.single('file'), async (req, res) => {
                         course: courseName
                     });
                 } catch (error) {
-                    console.error('Nodemailer Error:', error);
+                    console.error('FULL ERROR:', error);
                 }
             }
 
