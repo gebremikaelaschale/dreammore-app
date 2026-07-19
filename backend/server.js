@@ -56,6 +56,7 @@ app.get('/progress', (req, res) => {
 app.post('/send-emails', upload.single('file'), async (req, res) => {
     try {
         const { courseName, selectedRecipients } = req.body;
+        console.log('Received request for course:', req.body.courseName);
         const workbook = xlsx.readFile(req.file.path);
         const data = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
         const selectedRecipientSet = new Set((JSON.parse(selectedRecipients || '[]')).map((value) => String(value || '').trim().toLowerCase()));
@@ -105,11 +106,13 @@ app.post('/send-emails', upload.single('file'), async (req, res) => {
                     reason: 'duplicate'
                 });
             } else {
-                await transporter.sendMail({
-                    from: `DreamMore <${process.env.EMAIL_USER}>`,
-                    to: normalizedEmail,
-                    subject: 'Course Registration',
-                    html: `
+                console.log('Attempting to send email to:', user.Email);
+                try {
+                    await transporter.sendMail({
+                        from: `DreamMore <${process.env.EMAIL_USER}>`,
+                        to: normalizedEmail,
+                        subject: 'Course Registration',
+                        html: `
                         <div style="background-color:#f4f4f4;padding:40px 20px;font-family:Arial,Helvetica,sans-serif;">
                           <div style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
                             <div style="background:#eaf4ff;padding:28px 24px 20px;text-align:center;">
@@ -144,20 +147,23 @@ app.post('/send-emails', upload.single('file'), async (req, res) => {
                           </div>
                         </div>
                     `
-                });
+                    });
 
-                await EmailLog.create({
-                    studentName: user.Name || 'Unknown',
-                    email: normalizedEmail,
-                    course: normalizedCourse,
-                    sentAt: new Date()
-                });
+                    await EmailLog.create({
+                        studentName: user.Name || 'Unknown',
+                        email: normalizedEmail,
+                        course: normalizedCourse,
+                        sentAt: new Date()
+                    });
 
-                sentTo.push({
-                    studentName: user.Name || 'Unknown',
-                    email: normalizedEmail,
-                    course: courseName
-                });
+                    sentTo.push({
+                        studentName: user.Name || 'Unknown',
+                        email: normalizedEmail,
+                        course: courseName
+                    });
+                } catch (error) {
+                    console.error('Nodemailer Error:', error);
+                }
             }
 
             const percent = Math.round(((index + 1) / total) * 100);
