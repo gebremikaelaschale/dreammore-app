@@ -5,6 +5,7 @@ import confetti from 'canvas-confetti';
 import * as XLSX from 'xlsx';
 
 const API_BASE_URL = 'https://dreammore-app.onrender.com';
+console.log('App starting. API_BASE_URL is set to:', API_BASE_URL);
 
 function App() {
   const [file, setFile] = useState(null);
