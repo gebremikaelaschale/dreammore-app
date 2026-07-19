@@ -35,11 +35,9 @@ if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
 }
 
 const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
+    host: 'smtp-relay.brevo.com',
     port: 587,
     secure: false,
-    requireTLS: true,
-    family: 4,
     auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
     tls: { rejectUnauthorized: false }
 });
@@ -138,7 +136,7 @@ app.post('/send-emails', upload.single('file'), async (req, res) => {
                 console.log('Attempting to send email to:', user.email);
                 try {
                     await transporter.sendMail({
-                        from: `DreamMore <${process.env.EMAIL_USER}>`,
+                        from: 'DreamMore <gebremikaelaschale7@gmail.com>',
                         to: normalizedEmail,
                         subject: 'Course Registration',
                         html: `
@@ -178,7 +176,7 @@ app.post('/send-emails', upload.single('file'), async (req, res) => {
                     `
                     });
 
-                    console.log('Email successfully sent to:', user.email);
+                    console.log('Success: Email sent via Brevo to:', user.email);
 
                     await EmailLog.create({
                         studentName: userName,
