@@ -30,6 +30,10 @@ mongoose.connect(process.env.MONGODB_URI)
     .then(() => console.log('Database Connected Successfully'))
     .catch((err) => console.error('MongoDB connection error:', err.message));
 
+if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.warn('WARNING: process.env.EMAIL_USER or process.env.EMAIL_PASS is missing! Emails will fail to send.');
+}
+
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
     port: 587,
@@ -73,24 +77,35 @@ app.get('/progress', (req, res) => {
 
 app.post('/send-emails', upload.single('file'), async (req, res) => {
     try {
-        const { courseName, selectedRecipients } = req.body;
+        const { courseName, selectedRecipients, selectedStudents } = req.body;
         console.log('Data received from frontend:', req.body);
+        console.log('Final list of recipients to send:', req.body.selectedStudents || req.body.selectedRecipients);
         const workbook = xlsx.readFile(req.file.path);
-        const data = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-        const selectedRecipientSet = new Set((JSON.parse(selectedRecipients || '[]')).map((value) => String(value || '').trim().toLowerCase()));
+        const rawData = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+        
+        // Normalize keys to lowercase to fix casing issues
+        const data = rawData.map(row => {
+            const normalizedRow = {};
+            for (const key in row) {
+                normalizedRow[key.toLowerCase()] = row[key];
+            }
+            return normalizedRow;
+        });
+
+        const selectedRecipientSet = new Set((JSON.parse(selectedRecipients || selectedStudents || '[]')).map((value) => String(value || '').trim().toLowerCase()));
 
         const filtered = data.filter((row) => {
-            const matchesCourse = String(row.Course || '').trim().toLowerCase() === String(courseName || '').trim().toLowerCase();
-            const email = String(row.Email || '').trim().toLowerCase();
+            const matchesCourse = String(row.course || '').trim().toLowerCase() === String(courseName || '').trim().toLowerCase();
+            const email = String(row.email || '').trim().toLowerCase();
             const isSelectedRecipient = selectedRecipientSet.size === 0 || selectedRecipientSet.has(email);
             return matchesCourse && isSelectedRecipient;
         });
         const validRecipients = filtered.filter((row) => {
-            const email = String(row.Email || '').trim();
+            const email = String(row.email || '').trim();
             return email.includes('@') && email.includes('.com');
         });
         const invalidRecipients = filtered.filter((row) => {
-            const email = String(row.Email || '').trim();
+            const email = String(row.email || '').trim();
             return !email.includes('@') || !email.includes('.com');
         });
         const total = validRecipients.length;
@@ -107,19 +122,20 @@ app.post('/send-emails', upload.single('file'), async (req, res) => {
 
         for (let index = 0; index < validRecipients.length; index++) {
             const user = validRecipients[index];
-            const normalizedEmail = String(user.Email || '').trim().toLowerCase();
+            const userName = user.name || 'Unknown';
+            const normalizedEmail = String(user.email || '').trim().toLowerCase();
             const normalizedCourse = String(courseName || '').trim().toLowerCase();
             const existingRecord = await EmailLog.findOne({ email: normalizedEmail, course: normalizedCourse });
 
             if (existingRecord) {
                 duplicates.push({
-                    studentName: user.Name || 'Unknown',
+                    studentName: userName,
                     email: normalizedEmail,
                     course: courseName,
                     reason: 'duplicate'
                 });
             } else {
-                console.log('Attempting to send email to:', user.Email);
+                console.log('Attempting to send email to:', user.email);
                 try {
                     await transporter.sendMail({
                         from: `DreamMore <${process.env.EMAIL_USER}>`,
@@ -134,7 +150,7 @@ app.post('/send-emails', upload.single('file'), async (req, res) => {
                             <div style="padding:30px 32px 32px;color:#1f2937;line-height:1.7;">
                               <h2 style="margin:0 0 10px;font-size:26px;color:#0f172a;">Welcome to the Future of Your Career!</h2>
                               <p style="margin:0 0 12px;font-size:16px;">
-                                Congratulations ${user.Name || 'Student'}!
+                                Congratulations ${user.name || 'Student'}!
                               </p>
                               <p style="margin:0 0 12px;font-size:16px;">
                                 We are thrilled to officially welcome you to the <strong>${courseName}</strong> program at DreamMore.
@@ -162,22 +178,22 @@ app.post('/send-emails', upload.single('file'), async (req, res) => {
                     `
                     });
 
-                    console.log('Email successfully sent to:', user.Email);
+                    console.log('Email successfully sent to:', user.email);
 
                     await EmailLog.create({
-                        studentName: user.Name || 'Unknown',
+                        studentName: userName,
                         email: normalizedEmail,
                         course: normalizedCourse,
                         sentAt: new Date()
                     });
 
                     sentTo.push({
-                        studentName: user.Name || 'Unknown',
+                        studentName: userName,
                         email: normalizedEmail,
                         course: courseName
                     });
                 } catch (error) {
-                    console.error('FULL ERROR:', error);
+                    console.error('FULL ERROR for ' + normalizedEmail + ':', error);
                 }
             }
 
