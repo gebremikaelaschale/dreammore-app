@@ -2,7 +2,7 @@ require('dotenv').config(); // ይህ .env ፋይሉን ያነብልሃል
 
 const express = require('express');
 const xlsx = require('xlsx');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const cors = require('cors');
 const multer = require('multer');
 const mongoose = require('mongoose');
@@ -84,15 +84,7 @@ app.post('/send-emails', upload.single('file'), async (req, res) => {
             return res.json({ success: true, message: 'No valid recipients found.', sentCount: 0, duplicateCount: 0, sentTo: [], duplicates: [], invalidRecipients });
         }
 
-        const transporter = nodemailer.createTransport({
-            host: 'smtp.gmail.com',
-            port: 587,
-            secure: false,
-            requireTLS: true,
-            family: 4,
-            auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-            tls: { rejectUnauthorized: false }
-        });
+        const resend = new Resend(process.env.RESEND_API_KEY);
 
         const sentTo = [];
         const duplicates = [];
@@ -113,8 +105,8 @@ app.post('/send-emails', upload.single('file'), async (req, res) => {
             } else {
                 console.log('Attempting to send email to:', user.Email);
                 try {
-                    await transporter.sendMail({
-                        from: `DreamMore <${process.env.EMAIL_USER}>`,
+                    const { data, error } = await resend.emails.send({
+                        from: 'DreamMore <onboarding@resend.dev>',
                         to: normalizedEmail,
                         subject: 'Course Registration',
                         html: `
@@ -153,6 +145,10 @@ app.post('/send-emails', upload.single('file'), async (req, res) => {
                         </div>
                     `
                     });
+
+                    if (error) {
+                        throw error;
+                    }
 
                     console.log('Email successfully sent to:', user.Email);
 
