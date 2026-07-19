@@ -4,8 +4,8 @@ import axios from 'axios';
 import confetti from 'canvas-confetti';
 import * as XLSX from 'xlsx';
 
-const API_BASE_URL = 'https://dreammore-app.onrender.com';
-console.log('App starting. API_BASE_URL is set to:', API_BASE_URL);
+const API_BASE_URL = 'http://localhost:5000';
+console.log('App running in Local Mode - pointing to localhost:5000');
 
 function App() {
   const [file, setFile] = useState(null);
