@@ -36,7 +36,21 @@ if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
 
 const transporter = nodemailer.createTransport({
     service: 'gmail',
-    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false,
+    requireTLS: true,
+    family: 4,
+    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+    tls: { rejectUnauthorized: false }
+});
+
+transporter.verify((error, success) => {
+    if (error) {
+        console.error('SMTP Connection Error:', error);
+    } else {
+        console.log('SMTP Connection: Success! Ready to send emails.');
+    }
 });
 
 const broadcastProgress = (percent, status) => {
@@ -251,11 +265,4 @@ app.delete('/history/delete-selected', async (req, res) => {
 
 app.listen(5000, () => {
     console.log("Server running on 5000");
-    transporter.verify((error, success) => {
-        if (error) {
-            console.error('Nodemailer Connection Error:', error);
-        } else {
-            console.log('Nodemailer is connected and ready to send emails.');
-        }
-    });
 });
