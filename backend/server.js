@@ -2,7 +2,7 @@ require('dotenv').config(); // ይህ .env ፋይሉን ያነብልሃል
 
 const express = require('express');
 const xlsx = require('xlsx');
-const axios = require('axios');
+const nodemailer = require('nodemailer');
 const cors = require('cors');
 const multer = require('multer');
 const mongoose = require('mongoose');
@@ -33,6 +33,11 @@ mongoose.connect(process.env.MONGODB_URI)
 if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
     console.warn('WARNING: process.env.EMAIL_USER or process.env.EMAIL_PASS is missing! Emails will fail to send.');
 }
+
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+});
 
 const broadcastProgress = (percent, status) => {
     progressState = { percent, status };
@@ -119,11 +124,11 @@ app.post('/send-emails', upload.single('file'), async (req, res) => {
             } else {
                 console.log('Attempting to send email to:', user.email);
                 try {
-                    const payload = {
-                        sender: { name: "DreamMore", email: "gebremikaelaschale7@gmail.com" },
-                        to: [{ email: normalizedEmail, name: userName }],
-                        subject: "Welcome to DreamMore Academy",
-                        htmlContent: `
+                    await transporter.sendMail({
+                        from: `DreamMore <${process.env.EMAIL_USER}>`,
+                        to: normalizedEmail,
+                        subject: 'Course Registration',
+                        html: `
                         <div style="background-color:#f4f4f4;padding:40px 20px;font-family:Arial,Helvetica,sans-serif;">
                           <div style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
                             <div style="background:#eaf4ff;padding:28px 24px 20px;text-align:center;">
@@ -157,18 +162,10 @@ app.post('/send-emails', upload.single('file'), async (req, res) => {
                             </div>
                           </div>
                         </div>
-                        `
-                    };
-
-                    const response = await axios.post('https://api.brevo.com/v3/smtp/email', payload, {
-                        headers: {
-                            'api-key': process.env.EMAIL_PASS,
-                            'Content-Type': 'application/json'
-                        }
+                    `
                     });
 
-                    console.log('API Response:', response.data);
-                    console.log('Success: Email sent via Brevo to:', user.email);
+                    console.log('Email successfully sent to:', user.email);
 
                     await EmailLog.create({
                         studentName: userName,
@@ -248,4 +245,13 @@ app.delete('/history/delete-selected', async (req, res) => {
     }
 });
 
-app.listen(5000, () => console.log("Server running on 5000"));
+app.listen(5000, () => {
+    console.log("Server running on 5000");
+    transporter.verify((error, success) => {
+        if (error) {
+            console.error('Nodemailer Connection Error:', error);
+        } else {
+            console.log('Nodemailer is connected and ready to send emails.');
+        }
+    });
+});
